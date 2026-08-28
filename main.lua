@@ -82,18 +82,21 @@ TargetDropdown:OnChanged(function(Value)
     TargetCharacter = Value
 end)
 
--- FUNGSI UNTUK AUTO TEKAN TOMBOL ROLL HITAM
-local function TriggerRollPrompt()
-    -- Cek ProximityPrompt di sekitar player / papan Summon
+-- FUNGSI UNTUK AUTO TEKAN TOMBOL ROLL
+local function PerformRoll()
+    -- Prioritas 1: Tembak Remote Roll Utama
+    pcall(function()
+        game:GetService("ReplicatedStorage").Remotes.Characters.Roll:FireServer()
+    end)
+
+    -- Prioritas 2: Tekan ProximityPrompt Papan ROLL (Backup)
     for _, prompt in pairs(workspace:GetDescendants()) do
         if prompt:IsA("ProximityPrompt") then
             local pName = prompt.Name:lower()
             local parentName = prompt.Parent and prompt.Parent.Name:lower() or ""
-            
-            -- Deteksi prompt tombol Roll
-            if string.find(pName, "roll") or string.find(pName, "summon") or string.find(parentName, "roll") or string.find(parentName, "summon") or prompt.ActionText:lower():find("roll") then
+            if string.find(pName, "roll") or string.find(pName, "summon") or string.find(parentName, "roll") then
                 fireproximityprompt(prompt)
-                return true
+                break
             end
         end
     end
@@ -106,15 +109,16 @@ ToggleAutoRoll:OnChanged(function(State)
     AutoRollActive = State
     
     if AutoRollActive then
+        -- Langsung jalankan tanpa perlu dipancing manual!
         task.spawn(function()
             while AutoRollActive do
-                -- 1. Otomatis tekan tombol Roll (Menirukan pencetan tangan)
-                TriggerRollPrompt()
+                -- 1. Tekan Roll
+                PerformRoll()
                 
-                -- 2. Jeda waktu sampai animasi jalan karakter mendarat di bulatan (podium)
-                task.wait(1.3)
+                -- 2. Jeda Cooldown Tombol + Animasi Karakter Jalan (1.8 Detik)
+                task.wait(1.8)
                 
-                -- 3. Beli jika karakter sesuai target
+                -- 3. Cek dan Beli Karakter Target jika sudah mendarat
                 if AutoRollActive then
                     pcall(function()
                         for _, prompt in pairs(workspace:GetDescendants()) do
@@ -132,7 +136,7 @@ ToggleAutoRoll:OnChanged(function(State)
                     end)
                 end
                 
-                task.wait(0.3)
+                task.wait(0.2)
             end
         end)
     end
