@@ -54,17 +54,74 @@ end)
 --                FITUR TAB 2: AUTO ROLL
 -- ========================================================
 Tabs.Roll:AddParagraph({
-    Title = "Auto Roll & Farm External Script",
-    Content = "Jalankan script Ouroboros yang sudah teruji auto buy & roll-nya!"
+    Title = "Auto Roll & Buy Target",
+    Content = "Otomatis Roll via Remote Storage (Bisa dari mana saja & Aman)!"
 })
 
-Tabs.Roll:AddButton({
-    Title = "Jalankan Ouroboros Script",
-    Description = "Klik untuk membuka Menu Auto Roll / Auto Farm Ouroboros",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/joustingmatch/Ouroboros/main/loader.lua"))()
-    end
+local TargetCharacter = "All"
+local AutoRollActive = false
+
+-- 1. DROPDOWN TARGET
+local TargetDropdown = Tabs.Roll:AddDropdown("TargetSelect", {
+    Title = "Pilih Karakter Impian",
+    Values = {
+        "All",
+        "Choji",
+        "Sakamoto", 
+        "Saitama", 
+        "Madara", 
+        "Goku", 
+        "Gojo", 
+        "Sukuna", 
+        "Ussop"
+    },
+    Default = "Choji",
 })
+
+TargetDropdown:OnChanged(function(Value)
+    TargetCharacter = Value
+end)
+
+-- 2. TOGGLE AUTO ROLL & BUY
+local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
+
+ToggleAutoRoll:OnChanged(function(State)
+    AutoRollActive = State
+    
+    if AutoRollActive then
+        task.spawn(function()
+            while AutoRollActive do
+                -- Step 1: Fire Remote Roll Asli (Bisa dari jarak jauh)
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Remotes.Characters.Roll:FireServer()
+                end)
+                
+                -- Step 2: Jeda Cooldown Server (1.8 Detik)
+                task.wait(1.8)
+                
+                -- Step 3: Auto Buy Karakter jika sesuai Target
+                if AutoRollActive then
+                    pcall(function()
+                        for _, prompt in pairs(workspace:GetDescendants()) do
+                            if prompt:IsA("ProximityPrompt") and prompt.Name == "BuyPrompt" then
+                                local charModel = prompt.Parent and prompt.Parent.Parent
+                                if charModel then
+                                    local cName = charModel.Name:lower()
+                                    if TargetCharacter == "All" or string.find(cName, TargetCharacter:lower()) then
+                                        fireproximityprompt(prompt)
+                                        task.wait(0.2)
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end
+                
+                task.wait(0.2)
+            end
+        end)
+    end
+end)
 
 -- ========================================================
 --                NOTIFIKASI SAAT SUCCESS LOAD
