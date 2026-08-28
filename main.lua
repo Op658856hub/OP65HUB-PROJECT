@@ -53,30 +53,17 @@ end)
 -- ========================================================
 --                FITUR TAB 2: AUTO ROLL
 -- ========================================================
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RemoteRoll = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild("Roll")
-local RemoteBuy = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild("Buy")
-
 Tabs.Roll:AddParagraph({
     Title = "Auto Roll & Buy Target",
     Content = "Otomatis Roll dan langsung beli karakter impian kamu!"
 })
 
 local TargetCharacter = "All"
-local CurrentRollId = nil
-local CurrentCharacters = {}
-
-RemoteRoll.OnClientEvent:Connect(function(player, base, charData, delayTime, rollId)
-    if player == game.Players.LocalPlayer then
-        CurrentRollId = rollId
-        CurrentCharacters = charData
-    end
-end)
 
 -- 1. SCAN SEMUA KARAKTER OTOMATIS DARI REPLICATEDSTORAGE
 local characterList = {"All"}
 pcall(function()
-    local charFolder = ReplicatedStorage:FindFirstChild("Assets") and ReplicatedStorage.Assets:FindFirstChild("Characters")
+    local charFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Assets") and game:GetService("ReplicatedStorage").Assets:FindFirstChild("Characters")
     if charFolder then
         for _, char in pairs(charFolder:GetChildren()) do
             table.insert(characterList, char.Name)
@@ -99,53 +86,50 @@ end)
 -- 3. TOGGLE AUTO ROLL & BUY
 local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
 
-ToggleAutoRoll:OnChanged(function(Value)
-    task.spawn(function()
-        while ToggleAutoRoll.Value do
-            CurrentRollId = nil
-            CurrentCharacters = nil
-
-            -- Trigger Roll
-            pcall(function()
-                RemoteRoll:FireServer()
-            end)
-            
-            task.wait(0.35)
-            
-            local foundSlot = nil
-            
-            -- Cek Karakter
-            if CurrentRollId and CurrentCharacters then
-                for slotIndex, charInfo in pairs(CurrentCharacters) do
-                    local charName = charInfo.Name or ""
-                    
-                    if TargetCharacter == "All" then
-                        foundSlot = slotIndex
-                        break
-                    elseif charName == TargetCharacter or string.find(charName:lower(), TargetCharacter:lower()) then
-                        foundSlot = slotIndex
-                        break
-                    end
-                end
-            end
-
-            -- Eksekusi Beli jika cocok
-            if foundSlot and CurrentRollId then
-                task.wait(0.5)
-
-                for i = 1, 5 do
-                    pcall(function()
-                        RemoteBuy:FireServer(CurrentRollId, foundSlot)
-                    end)
-                    task.wait(0.08)
-                end
+ToggleAutoRoll:OnChanged(function(State)
+    if State then
+        task.spawn(function()
+            while ToggleAutoRoll.Value do
+                -- Step 1: Fire Roll Remote
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Remotes.Characters.Roll:FireServer()
+                end)
                 
+                -- Jeda untuk spawn
                 task.wait(0.4)
-            else
-                task.wait(0.15)
+                
+                -- Step 2: Cek ProximityPrompt di Pod/Podium buat Auto Buy
+                pcall(function()
+                    for _, prompt in pairs(workspace:GetDescendants()) do
+                        if prompt:IsA("ProximityPrompt") and prompt.Name == "BuyPrompt" then
+                            local charModel = prompt.Parent and prompt.Parent.Parent
+                            local shouldBuy = false
+
+                            if charModel then
+                                if TargetCharacter == "All" or string.find(charModel.Name:lower(), TargetCharacter:lower()) then
+                                    shouldBuy = true
+                                end
+                            else
+                                shouldBuy = true
+                            end
+
+                            if shouldBuy then
+                                local firePrompt = fireproximityprompt or (debug and debug.getupvalue)
+                                if fireproximityprompt then
+                                    fireproximityprompt(prompt)
+                                elseif prompt.InputHoldBegin then
+                                    prompt:InputHoldBegin()
+                                    prompt:InputHoldEnd()
+                                end
+                            end
+                        end
+                    end
+                end)
+                
+                task.wait(0.3)
             end
-        end
-    end)
+        end)
+    end
 end)
 
 -- ========================================================
