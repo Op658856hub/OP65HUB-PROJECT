@@ -55,16 +55,11 @@ end)
 -- ========================================================
 Tabs.Roll:AddParagraph({
     Title = "Auto Roll & Buy Target",
-    Content = "Roll dan Buy langsung via Remote (Bisa dari jarak jauh & 100% Aman)!"
+    Content = "Berdirilah di dekat Papan Summon, lalu aktifkan Toggle!"
 })
 
 local TargetCharacter = "All"
 local AutoRollActive = false
-
--- Remote Events
-local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Characters")
-local RollRemote = Remotes:WaitForChild("Roll")
-local BuyRemote = Remotes:WaitForChild("Buy")
 
 -- 1. DROPDOWN TARGET
 local TargetDropdown = Tabs.Roll:AddDropdown("TargetSelect", {
@@ -96,25 +91,35 @@ ToggleAutoRoll:OnChanged(function(State)
     if AutoRollActive then
         task.spawn(function()
             while AutoRollActive do
-                -- Step 1: Nembak Remote Roll
+                -- 1. Tekan Prompt Roll Utama
                 pcall(function()
-                    RollRemote:FireServer()
+                    for _, prompt in pairs(workspace:GetDescendants()) do
+                        if prompt:IsA("ProximityPrompt") then
+                            local pName = prompt.Name:lower()
+                            local parentName = prompt.Parent and prompt.Parent.Name:lower() or ""
+                            if string.find(pName, "roll") or string.find(pName, "summon") or string.find(parentName, "roll") then
+                                fireproximityprompt(prompt)
+                                break
+                            end
+                        end
+                    end
                 end)
                 
-                -- Step 2: Jeda Animasi Roll Server (1.5 Detik)
-                task.wait(1.5)
+                -- Jeda 2.2 detik agar animasi gacha server selesai
+                task.wait(2.2)
                 
-                -- Step 3: Nembak Remote Buy untuk Karakter Target
+                -- 2. Cek & Beli Karakter jika sesuai Target
                 if AutoRollActive then
                     pcall(function()
-                        for _, model in pairs(workspace:GetChildren()) do
-                            -- Mencari model karakter hasil roll di workspace
-                            if model:FindFirstChild("Humanoid") or model:FindFirstChild("Head") then
-                                local cName = model.Name:lower()
-                                if TargetCharacter == "All" or string.find(cName, TargetCharacter:lower()) then
-                                    -- Nembak Remote Buy langsung pakai instance/nama model
-                                    BuyRemote:FireServer(model)
-                                    task.wait(0.2)
+                        for _, prompt in pairs(workspace:GetDescendants()) do
+                            if prompt:IsA("ProximityPrompt") and prompt.Name == "BuyPrompt" then
+                                local charModel = prompt.Parent and prompt.Parent.Parent
+                                if charModel then
+                                    local cName = charModel.Name:lower()
+                                    if TargetCharacter == "All" or string.find(cName, TargetCharacter:lower()) then
+                                        fireproximityprompt(prompt)
+                                        task.wait(0.3)
+                                    end
                                 end
                             end
                         end
