@@ -89,24 +89,48 @@ local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Aut
 ToggleAutoRoll:OnChanged(function(Value)
     task.spawn(function()
         while ToggleAutoRoll.Value do
+            CurrentRollId = nil
+            CurrentCharacters = nil
+
+            -- 1. Trigger Roll
             pcall(function()
                 RemoteRoll:FireServer()
             end)
             
-            task.wait(0.3)
+            -- Wait balasan server
+            task.wait(0.4)
+            
+            -- 2. Cek apakah ada target di hasil roll ini
+            local foundTarget = false
+            local targetSlot = nil
             
             if CurrentRollId and CurrentCharacters then
                 for slotIndex, charInfo in pairs(CurrentCharacters) do
-                    if charInfo.Name == TargetCharacter then
-                        pcall(function()
-                            RemoteBuy:FireServer(CurrentRollId, slotIndex)
-                        end)
+                    if charInfo.Name == TargetCharacter or TargetCharacter == "All" then
+                        foundTarget = true
+                        targetSlot = slotIndex
                         break
                     end
                 end
             end
-            
-            task.wait(0.2)
+
+            -- 3. Eksekusi Pembelian Jika Target Ditemukan
+            if foundTarget and CurrentRollId and targetSlot then
+                -- Tunggu delay cooldown internal server (0.6s)
+                task.wait(0.6) 
+
+                -- Tembak RemoteBuy berulang kali agar pasti terdaftar
+                for i = 1, 5 do
+                    pcall(function()
+                        RemoteBuy:FireServer(CurrentRollId, targetSlot)
+                    end)
+                    task.wait(0.1)
+                end
+                
+                task.wait(0.5)
+            else
+                task.wait(0.2)
+            end
         end
     end)
 end)
