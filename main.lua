@@ -59,76 +59,75 @@ Tabs.Roll:AddParagraph({
 })
 
 local TargetCharacter = "All"
+local AutoRollActive = false
 
--- 1. SCAN SEMUA KARAKTER OTOMATIS DARI REPLICATEDSTORAGE
-local characterList = {"All"}
-pcall(function()
-    local charFolder = game:GetService("ReplicatedStorage"):FindFirstChild("Assets") and game:GetService("ReplicatedStorage").Assets:FindFirstChild("Characters")
-    if charFolder then
-        for _, char in pairs(charFolder:GetChildren()) do
-            table.insert(characterList, char.Name)
-        end
-        table.sort(characterList)
-    end
-end)
-
--- 2. DROPDOWN (PILIH KARAKTER IMPIAN)
+-- 1. DROPDOWN TARGET
 local TargetDropdown = Tabs.Roll:AddDropdown("TargetSelect", {
     Title = "Pilih Karakter Impian",
-    Values = characterList,
-    Default = "All",
+    Values = {
+        "All",
+        "Choji",
+        "Sakamoto", 
+        "Saitama", 
+        "Madara", 
+        "Goku", 
+        "Gojo", 
+        "Sukuna", 
+        "Ussop"
+    },
+    Default = "Choji",
 })
 
 TargetDropdown:OnChanged(function(Value)
     TargetCharacter = Value
 end)
 
--- 3. TOGGLE AUTO ROLL & BUY
-local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
-
-ToggleAutoRoll:OnChanged(function(State)
-    if State then
-        task.spawn(function()
-            while ToggleAutoRoll.Value do
-                -- Step 1: Fire Roll Remote
-                pcall(function()
-                    game:GetService("ReplicatedStorage").Remotes.Characters.Roll:FireServer()
-                end)
-                
-                -- Jeda untuk spawn
-                task.wait(0.4)
-                
-                -- Step 2: Cek ProximityPrompt di Pod/Podium buat Auto Buy
+-- FUNGSI UTAMA LOOP AUTO ROLL & BUY
+local function StartAutoRollLoop()
+    task.spawn(function()
+        while AutoRollActive do
+            -- 1. Trigger Roll
+            pcall(function()
+                game:GetService("ReplicatedStorage").Remotes.Characters.Roll:FireServer()
+            end)
+            
+            -- 2. TUNGGU ANIMASI KARAKTER JALAN SAMPALI PODIUM (Sangat Penting!)
+            -- Jeda 1.2 detik memberi waktu karakter berjalan dari spawn ke lingkaran
+            task.wait(1.2)
+            
+            -- 3. Cek & Beli Karakter yang sudah mendarat di podium
+            if AutoRollActive then
                 pcall(function()
                     for _, prompt in pairs(workspace:GetDescendants()) do
                         if prompt:IsA("ProximityPrompt") and prompt.Name == "BuyPrompt" then
                             local charModel = prompt.Parent and prompt.Parent.Parent
-                            local shouldBuy = false
-
+                            
+                            -- Evaluasi nama karakter setelah mendarat
                             if charModel then
-                                if TargetCharacter == "All" or string.find(charModel.Name:lower(), TargetCharacter:lower()) then
-                                    shouldBuy = true
-                                end
-                            else
-                                shouldBuy = true
-                            end
-
-                            if shouldBuy then
-                                local firePrompt = fireproximityprompt or (debug and debug.getupvalue)
-                                if fireproximityprompt then
+                                local cName = charModel.Name:lower()
+                                if TargetCharacter == "All" or string.find(cName, TargetCharacter:lower()) then
                                     fireproximityprompt(prompt)
-                                elseif prompt.InputHoldBegin then
-                                    prompt:InputHoldBegin()
-                                    prompt:InputHoldEnd()
+                                    task.wait(0.2) -- Jeda sebentar setelah eksekusi beli
                                 end
                             end
                         end
                     end
                 end)
-                
-                task.wait(0.3)
             end
-        end)
+
+            -- Jeda antar-roll agar tidak spamming server
+            task.wait(0.3)
+        end
+    end)
+end
+
+-- 2. TOGGLE AUTO ROLL & BUY
+local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
+
+ToggleAutoRoll:OnChanged(function(State)
+    AutoRollActive = State
+    if AutoRollActive then
+        StartAutoRollLoop()
     end
 end)
 
