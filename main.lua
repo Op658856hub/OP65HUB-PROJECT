@@ -82,43 +82,21 @@ TargetDropdown:OnChanged(function(Value)
     TargetCharacter = Value
 end)
 
--- FUNGSI UTAMA LOOP AUTO ROLL & BUY
-local function StartAutoRollLoop()
-    task.spawn(function()
-        while AutoRollActive do
-            -- 1. Trigger Roll
-            pcall(function()
-                game:GetService("ReplicatedStorage").Remotes.Characters.Roll:FireServer()
-            end)
+-- FUNGSI UNTUK AUTO TEKAN TOMBOL ROLL HITAM
+local function TriggerRollPrompt()
+    -- Cek ProximityPrompt di sekitar player / papan Summon
+    for _, prompt in pairs(workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            local pName = prompt.Name:lower()
+            local parentName = prompt.Parent and prompt.Parent.Name:lower() or ""
             
-            -- 2. TUNGGU ANIMASI KARAKTER JALAN SAMPALI PODIUM (Sangat Penting!)
-            -- Jeda 1.2 detik memberi waktu karakter berjalan dari spawn ke lingkaran
-            task.wait(1.2)
-            
-            -- 3. Cek & Beli Karakter yang sudah mendarat di podium
-            if AutoRollActive then
-                pcall(function()
-                    for _, prompt in pairs(workspace:GetDescendants()) do
-                        if prompt:IsA("ProximityPrompt") and prompt.Name == "BuyPrompt" then
-                            local charModel = prompt.Parent and prompt.Parent.Parent
-                            
-                            -- Evaluasi nama karakter setelah mendarat
-                            if charModel then
-                                local cName = charModel.Name:lower()
-                                if TargetCharacter == "All" or string.find(cName, TargetCharacter:lower()) then
-                                    fireproximityprompt(prompt)
-                                    task.wait(0.2) -- Jeda sebentar setelah eksekusi beli
-                                end
-                            end
-                        end
-                    end
-                end)
+            -- Deteksi prompt tombol Roll
+            if string.find(pName, "roll") or string.find(pName, "summon") or string.find(parentName, "roll") or string.find(parentName, "summon") or prompt.ActionText:lower():find("roll") then
+                fireproximityprompt(prompt)
+                return true
             end
-
-            -- Jeda antar-roll agar tidak spamming server
-            task.wait(0.3)
         end
-    end)
+    end
 end
 
 -- 2. TOGGLE AUTO ROLL & BUY
@@ -126,8 +104,37 @@ local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Aut
 
 ToggleAutoRoll:OnChanged(function(State)
     AutoRollActive = State
+    
     if AutoRollActive then
-        StartAutoRollLoop()
+        task.spawn(function()
+            while AutoRollActive do
+                -- 1. Otomatis tekan tombol Roll (Menirukan pencetan tangan)
+                TriggerRollPrompt()
+                
+                -- 2. Jeda waktu sampai animasi jalan karakter mendarat di bulatan (podium)
+                task.wait(1.3)
+                
+                -- 3. Beli jika karakter sesuai target
+                if AutoRollActive then
+                    pcall(function()
+                        for _, prompt in pairs(workspace:GetDescendants()) do
+                            if prompt:IsA("ProximityPrompt") and prompt.Name == "BuyPrompt" then
+                                local charModel = prompt.Parent and prompt.Parent.Parent
+                                if charModel then
+                                    local cName = charModel.Name:lower()
+                                    if TargetCharacter == "All" or string.find(cName, TargetCharacter:lower()) then
+                                        fireproximityprompt(prompt)
+                                        task.wait(0.2)
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                end
+                
+                task.wait(0.3)
+            end
+        end)
     end
 end)
 
