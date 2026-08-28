@@ -62,7 +62,7 @@ Tabs.Roll:AddParagraph({
     Content = "Otomatis Roll dan langsung beli karakter impian kamu!"
 })
 
-local TargetCharacter = "Saitomo"
+local TargetCharacter = "All"
 local CurrentRollId = nil
 local CurrentCharacters = {}
 
@@ -73,17 +73,30 @@ RemoteRoll.OnClientEvent:Connect(function(player, base, charData, delayTime, rol
     end
 end)
 
+-- 1. SCAN SEMUA KARAKTER OTOMATIS DARI REPLICATEDSTORAGE
+local characterList = {"All"}
+pcall(function()
+    local charFolder = ReplicatedStorage:FindFirstChild("Assets") and ReplicatedStorage.Assets:FindFirstChild("Characters")
+    if charFolder then
+        for _, char in pairs(charFolder:GetChildren()) do
+            table.insert(characterList, char.Name)
+        end
+        table.sort(characterList)
+    end
+end)
+
+-- 2. DROPDOWN (PILIH KARAKTER IMPIAN)
 local TargetDropdown = Tabs.Roll:AddDropdown("TargetSelect", {
     Title = "Pilih Karakter Impian",
-    Values = {"Saitomo", "Mobi", "Zero", "Luppi", "Shikamura"}, 
-    Default = "Saitomo",
+    Values = characterList,
+    Default = "All",
 })
 
 TargetDropdown:OnChanged(function(Value)
     TargetCharacter = Value
 end)
 
--- KODE BARU (SUDAH FIX ERROR OPTIONS):
+-- 3. TOGGLE AUTO ROLL & BUY
 local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
 
 ToggleAutoRoll:OnChanged(function(Value)
@@ -92,44 +105,44 @@ ToggleAutoRoll:OnChanged(function(Value)
             CurrentRollId = nil
             CurrentCharacters = nil
 
-            -- 1. Trigger Roll
+            -- Trigger Roll
             pcall(function()
                 RemoteRoll:FireServer()
             end)
             
-            -- Wait balasan server
-            task.wait(0.4)
+            task.wait(0.35)
             
-            -- 2. Cek apakah ada target di hasil roll ini
-            local foundTarget = false
-            local targetSlot = nil
+            local foundSlot = nil
             
+            -- Cek Karakter
             if CurrentRollId and CurrentCharacters then
                 for slotIndex, charInfo in pairs(CurrentCharacters) do
-                    if charInfo.Name == TargetCharacter or TargetCharacter == "All" then
-                        foundTarget = true
-                        targetSlot = slotIndex
+                    local charName = charInfo.Name or ""
+                    
+                    if TargetCharacter == "All" then
+                        foundSlot = slotIndex
+                        break
+                    elseif charName == TargetCharacter or string.find(charName:lower(), TargetCharacter:lower()) then
+                        foundSlot = slotIndex
                         break
                     end
                 end
             end
 
-            -- 3. Eksekusi Pembelian Jika Target Ditemukan
-            if foundTarget and CurrentRollId and targetSlot then
-                -- Tunggu delay cooldown internal server (0.6s)
-                task.wait(0.6) 
+            -- Eksekusi Beli jika cocok
+            if foundSlot and CurrentRollId then
+                task.wait(0.5)
 
-                -- Tembak RemoteBuy berulang kali agar pasti terdaftar
                 for i = 1, 5 do
                     pcall(function()
-                        RemoteBuy:FireServer(CurrentRollId, targetSlot)
+                        RemoteBuy:FireServer(CurrentRollId, foundSlot)
                     end)
-                    task.wait(0.1)
+                    task.wait(0.08)
                 end
                 
-                task.wait(0.5)
+                task.wait(0.4)
             else
-                task.wait(0.2)
+                task.wait(0.15)
             end
         end
     end)
