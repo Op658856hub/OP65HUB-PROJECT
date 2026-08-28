@@ -53,20 +53,61 @@ end)
 -- ========================================================
 --                FITUR TAB 2: AUTO ROLL
 -- ========================================================
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RemoteRoll = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild("Roll")
+local RemoteBuy = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Characters"):WaitForChild("Buy")
+
 Tabs.Roll:AddParagraph({
-    Title = "Gacha / Roll Section",
-    Content = "Otomatis roll aura/character/pet tanpa capek pencet."
+    Title = "Auto Roll & Buy Target",
+    Content = "Otomatis Roll dan langsung beli karakter impian kamu!"
 })
 
--- Toggle Auto Roll
-local ToggleRoll = Tabs.Roll:AddToggle("AutoRoll", {Title = "Auto Roll / Gacha", Default = false })
-ToggleRoll:OnChanged(function()
-    Toggles.AutoRoll = Fluent.Options.AutoRoll.Value
+local TargetCharacter = "Saitomo"
+local CurrentRollId = nil
+local CurrentCharacters = {}
+
+RemoteRoll.OnClientEvent:Connect(function(player, base, charData, delayTime, rollId)
+    if player == game.Players.LocalPlayer then
+        CurrentRollId = rollId
+        CurrentCharacters = charData
+    end
+end)
+
+local TargetDropdown = Tabs.Roll:AddDropdown("TargetSelect", {
+    Title = "Pilih Karakter Impian",
+    Values = {"Saitomo", "Mobi", "Zero", "Luppi", "Shikamura"}, 
+    Default = "Saitomo",
+})
+
+TargetDropdown:OnChanged(function(Value)
+    TargetCharacter = Value
+end)
+
+local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
+
+ToggleAutoRoll:OnChanged(function()
+    Options.AutoRollTarget = Options.AutoRollTarget or { Value = ToggleAutoRoll.Value }
+    
     task.spawn(function()
-        while Toggles.AutoRoll do
-            -- ISI KODE REMOTE ROLL GAME DISINI
-            -- game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Roll"):FireServer()
-            task.wait(0.5)
+        while Options.AutoRollTarget.Value do
+            pcall(function()
+                RemoteRoll:FireServer()
+            end)
+            
+            task.wait(0.3)
+            
+            if CurrentRollId and CurrentCharacters then
+                for slotIndex, charInfo in pairs(CurrentCharacters) do
+                    if charInfo.Name == TargetCharacter then
+                        pcall(function()
+                            RemoteBuy:FireServer(CurrentRollId, slotIndex)
+                        end)
+                        break
+                    end
+                end
+            end
+            
+            task.wait(0.2)
         end
     end)
 end)
