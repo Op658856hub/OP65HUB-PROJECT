@@ -83,13 +83,12 @@ TargetDropdown:OnChanged(function(Value)
     TargetCharacter = Value
 end)
 
+-- KODE BARU (SUDAH FIX ERROR OPTIONS):
 local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
 
-ToggleAutoRoll:OnChanged(function()
-    Options.AutoRollTarget = Options.AutoRollTarget or { Value = ToggleAutoRoll.Value }
-    
+ToggleAutoRoll:OnChanged(function(Value)
     task.spawn(function()
-        while Options.AutoRollTarget.Value do
+        while ToggleAutoRoll.Value do
             pcall(function()
                 RemoteRoll:FireServer()
             end)
