@@ -54,93 +54,17 @@ end)
 --                FITUR TAB 2: AUTO ROLL
 -- ========================================================
 Tabs.Roll:AddParagraph({
-    Title = "Auto Roll & Buy Target",
-    Content = "Otomatis Roll dan langsung beli karakter impian kamu!"
+    Title = "Auto Roll & Farm External Script",
+    Content = "Jalankan script Ouroboros yang sudah teruji auto buy & roll-nya!"
 })
 
-local TargetCharacter = "All"
-local AutoRollActive = false
-
--- 1. DROPDOWN TARGET
-local TargetDropdown = Tabs.Roll:AddDropdown("TargetSelect", {
-    Title = "Pilih Karakter Impian",
-    Values = {
-        "All",
-        "Choji",
-        "Sakamoto", 
-        "Saitama", 
-        "Madara", 
-        "Goku", 
-        "Gojo", 
-        "Sukuna", 
-        "Ussop"
-    },
-    Default = "Choji",
+Tabs.Roll:AddButton({
+    Title = "Jalankan Ouroboros Script",
+    Description = "Klik untuk membuka Menu Auto Roll / Auto Farm Ouroboros",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/joustingmatch/Ouroboros/main/loader.lua"))()
+    end
 })
-
-TargetDropdown:OnChanged(function(Value)
-    TargetCharacter = Value
-end)
-
--- FUNGSI UNTUK AUTO TEKAN TOMBOL ROLL
-local function PerformRoll()
-    -- Prioritas 1: Tembak Remote Roll Utama
-    pcall(function()
-        game:GetService("ReplicatedStorage").Remotes.Characters.Roll:FireServer()
-    end)
-
-    -- Prioritas 2: Tekan ProximityPrompt Papan ROLL (Backup)
-    for _, prompt in pairs(workspace:GetDescendants()) do
-        if prompt:IsA("ProximityPrompt") then
-            local pName = prompt.Name:lower()
-            local parentName = prompt.Parent and prompt.Parent.Name:lower() or ""
-            if string.find(pName, "roll") or string.find(pName, "summon") or string.find(parentName, "roll") then
-                fireproximityprompt(prompt)
-                break
-            end
-        end
-    end
-end
-
--- 2. TOGGLE AUTO ROLL & BUY
-local ToggleAutoRoll = Tabs.Roll:AddToggle("AutoRollTarget", {Title = "Mulai Auto Roll & Buy", Default = false })
-
-ToggleAutoRoll:OnChanged(function(State)
-    AutoRollActive = State
-    
-    if AutoRollActive then
-        -- Langsung jalankan tanpa perlu dipancing manual!
-        task.spawn(function()
-            while AutoRollActive do
-                -- 1. Tekan Roll
-                PerformRoll()
-                
-                -- 2. Jeda Cooldown Tombol + Animasi Karakter Jalan (1.8 Detik)
-                task.wait(1.8)
-                
-                -- 3. Cek dan Beli Karakter Target jika sudah mendarat
-                if AutoRollActive then
-                    pcall(function()
-                        for _, prompt in pairs(workspace:GetDescendants()) do
-                            if prompt:IsA("ProximityPrompt") and prompt.Name == "BuyPrompt" then
-                                local charModel = prompt.Parent and prompt.Parent.Parent
-                                if charModel then
-                                    local cName = charModel.Name:lower()
-                                    if TargetCharacter == "All" or string.find(cName, TargetCharacter:lower()) then
-                                        fireproximityprompt(prompt)
-                                        task.wait(0.2)
-                                    end
-                                end
-                            end
-                        end
-                    end)
-                end
-                
-                task.wait(0.2)
-            end
-        end)
-    end
-end)
 
 -- ========================================================
 --                NOTIFIKASI SAAT SUCCESS LOAD
